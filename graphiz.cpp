@@ -2,83 +2,101 @@
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
-#include <sstream>
 #include <memory>
 #include <string>
 #include <array>
-#include <stdexcept>
+#include <vector>
+#include <queue>
+#include <set>
 
-std::string execCommand(const char* cmd) {
-    std::array<char, 128> buffer;
-    std::string result;
+std::vector<std::string> get_dependencies(const std::string& package) {
+    std::vector<std::string> deps;
+    std::string cmd = "python qwert.py " + package;
+
 #if defined(_WIN32)
-    std::unique_ptr<FILE, decltype(&_pclose)> pipe(_popen(cmd, "r"), _pclose);
+    std::unique_ptr<FILE, decltype(&_pclose)> pipe(_popen(cmd.c_str(), "r"), _pclose);
 #else
-    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
 #endif
-    if (!pipe) {
-        throw std::runtime_error("Не удалось запустить команду!");
-    }
+
+    if (!pipe) return deps;
+
+    std::array<char, 128> buffer;
     while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-        result += buffer.data();
+        std::string line(buffer.data());
+        line.erase(std::remove(line.begin(), line.end(), '\n'), line.end());
+        line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+        if (!line.empty()) {
+            deps.push_back(line);
+        }
     }
-    return result;
+    return deps;
 }
 
 int main() {
     setlocale(LC_ALL, "Russian");
 
-    std::string pythonScript = "python qwert.py";
+    std::string start_package = "matplotlib";
+    std::queue<std::string> queue;
+    std::set<std::string> visited;
+    std::vector<std::pair<std::string, std::string>> edges;
 
-    std::cout << "Сбор зависимостей matplotlib из Python... " << std::endl;
-    std::string graphEdges;
-    try {
-        graphEdges = execCommand(pythonScript.c_str());
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Ошибка при работе с Python: " << e.what() << std::endl;
-        return 1;
+    queue.push(start_package);
+    visited.insert(start_package);
+
+    std::cout << "Строим граф зависимостей для " << start_package << "..." << std::endl;
+
+    while (!queue.empty()) {
+        std::string current = queue.front();
+        queue.pop();
+
+        std::cout << "Обработка: " << current << std::endl;
+
+        std::vector<std::string> direct_deps = get_dependencies(current);
+
+        for (const std::string& dep : direct_deps) {
+            edges.push_back({ current, dep });
+
+            if (visited.find(dep) == visited.end()) {
+                visited.insert(dep);
+                queue.push(dep);
+            }
+        }
     }
 
-    std::string dotFileName = "matplotlib_deps.dot";
-    std::string outputImageName = "matplotlib_deps.png";
+    std::string dotFileName = "deps_graph.dot";
     std::ofstream outFile(dotFileName);
 
     if (!outFile.is_open()) {
         std::cerr << "Не удалось создать файл .dot!" << std::endl;
         return 1;
     }
-    
-    std::cout << "Наш тест: " << graphEdges << std::endl;
 
-    outFile << "digraph MatplotlibDependencies {\n"
-        << "    // Стилизация\n"
-        << "    rankdir=LR; // Слева направо\n"
+    outFile << "digraph Dependencies {\n"
+        << "    rankdir=LR;\n"
         << "    node [shape=box, style=\"filled,rounded\", color=\"#1f77b4\", fillcolor=\"#e3f2fd\", fontname=\"Arial\", fontsize=11];\n"
-        << "    edge [color=\"#708090\", penwidth=1.5, arrowsize=0.8];\n\n"
-        << "    // Подсветка главного узла\n"
-        << "    \"matplotlib\" [fillcolor=\"#ff7f0e\", fontcolor=white, style=filled, fontsize=13];\n\n"
-        << "    // Связи\n"
-        << graphEdges
-        << "}" << std::endl;
+        << "    edge [color=\"#708090\", penwidth=1.5, arrowsize=0.8];\n\n";
+
+    outFile << "    \"" << start_package << "\" [fillcolor=\"#ff7f0e\", fontcolor=white, style=filled, fontsize=13];\n\n";
+
+    for (const auto& edge : edges) {
+        outFile << "    \"" << edge.first << "\" -> \"" << edge.second << "\";\n";
+    }
+
+    outFile << "}\n";
     outFile.close();
 
-    std::string graphvizCmd = "dot -Tpng " + dotFileName + " -o " + outputImageName;
+    std::string graphvizCmd = "dot -Tpng " + dotFileName + " -o deps_graph.png";
     int result = std::system(graphvizCmd.c_str());
 
     if (result == 0) {
-        std::cout << "Граф зависимостей сохранен в: " << outputImageName << std::endl;
-        // Открываем картинку в системе
+        std::cout << "Граф сохранен в deps_graph.png" << std::endl;
 #if defined(_WIN32)
-        std::system(("start " + outputImageName).c_str());
-#elif defined(__APPLE__)
-        std::system(("open " + outputImageName).c_str());
-#else
-        std::system(("xdg-open " + outputImageName).c_str());
+        std::system("start deps_graph.png");
 #endif
     }
     else {
-        std::cerr << "Ошибка генерации! Убедитесь, что Graphviz установлен и добавлен в PATH." << std::endl;
+        std::cerr << "Ошибка Graphviz!" << std::endl;
     }
 
     return 0;

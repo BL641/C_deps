@@ -1,34 +1,29 @@
-# python скрипт для взятия зависимостей
-import importlib.metadata as md
+import sys
+import json
+import urllib.request
 
-def get_deps(package):
+def get_direct_deps(package):
+    url = f"https://pypi.org/pypi/{package}/json"
     try:
-        requires = md.requires(package) or []
-        deps = set()
-        for req in requires:
-            if 'extra' not in req :
-                dep_name = req.split(';')[0].split('>')[0].split('<')[0].split('=')[0].strip().lower()
-                deps.add(dep_name)
-        return sorted(list(deps))
+        with urllib.request.urlopen(url, timeout=5) as response:
+            data = json.loads(response.read().decode())
+            requires = data["info"]["requires_dist"]
+            if not requires:
+                return []
+            
+            deps = set()
+            for req in requires:
+                if 'extra' in req:
+                    continue
+                dep_name = req.split(';')[0].split('>')[0].split('<')[0].split('=')[0].split('~')[0].strip().lower()
+                if dep_name:
+                    deps.add(dep_name)
+            return list(deps)
     except Exception:
         return []
 
-def main():
-    start_package = 'matplotlib'
-    queue = [start_package]
-    visited = set()
-
-    while queue:
-        current = queue.pop(0)
-        if current in visited:
-            continue
-        
-        visited.add(current)
-        
-        for dep in get_deps(current):
-            if dep not in visited:
-                print(f'    "{current}" -> "{dep}";')
-                queue.append(dep)
-
 if __name__ == "__main__":
-    main()
+    pkg = sys.argv[1]
+    deps = get_direct_deps(pkg)
+    for d in deps:
+        print(d)
