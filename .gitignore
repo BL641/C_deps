@@ -1,0 +1,66 @@
+# ---- C++ build ----
+*.o
+*.obj
+*.exe
+*.out
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.vcxproj*
+*.sln
+.vs/
+.idea/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+dist/
+build/
+venv/
+.venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
+
+# ---- Graphviz / выходные артефакты ----
+*.dot
+*.svg
+*.png
+*.pdf
+deps_graph.*
+!test_repo.dot
+!examples/*.dot
+
+# ---- Кэш PyPI (если добавите) ----
+.pypi_cache/
+
+# ---- Отчёты и временные файлы ----
+report.json
+pipdeptree.json
+*.tmp
+*.bak
+~$*
+
+# ---- OS / редакторы ----
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+.vscode/
