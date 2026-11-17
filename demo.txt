@@ -1,0 +1,51 @@
+Команды запускать из каталога graph-deps.
+Вся программа — depvis.py, только стандартная библиотека. pip не вызывается.
+
+python depvis.py --package ИМЯ --repo АДРЕС --test yes|no --output ФАЙЛ.svg --ascii yes|no --depth N --filter ПОДСТРОКА --reverse yes|no
+
+Фильтр «-» означает, что фильтра нет. Все параметры обязательны.
+
+Этап 1. Параметры печатаются парами ключ = значение.
+Успешный запуск на тестовом файле ничего не скачивает:
+
+python depvis.py --package A --repo testdata/chain.txt --test yes --output chain.svg --ascii no --depth 1 --filter - --reverse no
+
+Ошибки параметров (код выхода 2, сообщение «ошибка: параметр ...»):
+
+python depvis.py --repo testdata/chain.txt --test yes --output chain.svg --ascii no --depth 1 --filter - --reverse no
+python depvis.py --package Ab --repo testdata/chain.txt --test yes --output chain.svg --ascii no --depth 1 --filter - --reverse no
+python depvis.py --package A --repo testdata/missing.txt --test yes --output chain.svg --ascii no --depth 1 --filter - --reverse no
+python depvis.py --package requests --repo pypi.org/pypi --test no --output a.svg --ascii no --depth 1 --filter - --reverse no
+python depvis.py --package requests --repo https://pypi.org/pypi --test maybe --output a.svg --ascii no --depth 1 --filter - --reverse no
+python depvis.py --package requests --repo https://pypi.org/pypi --test no --output graph.png --ascii no --depth 1 --filter - --reverse no
+python depvis.py --package requests --repo https://pypi.org/pypi --test no --output a.svg --ascii true --depth 1 --filter - --reverse no
+python depvis.py --package requests --repo https://pypi.org/pypi --test no --output a.svg --ascii no --depth -1 --filter - --reverse no
+python depvis.py --package requests --repo https://pypi.org/pypi --test no --output a.svg --ascii no --depth 1 --filter "a b" --reverse no
+python depvis.py --package A --repo testdata/chain.txt --test yes --output chain.svg --ascii no --depth 1 --filter - --reverse maybe
+
+Этап 2. Блок «Прямые зависимости» — прямой список, без обхода вглубь.
+Для chain.txt у A в этом блоке только B, даже если глубина больше 1.
+Для PyPI имена читаются из requires_dist.
+
+Этап 3. Обход DFS. Ожидаемые рёбра:
+
+chain.txt, depth 1:  A -> B
+chain.txt, depth 2:  A -> B, B -> C
+diamond.txt, depth 3: A -> B, B -> D, A -> C, C -> D
+cycle.txt, depth 5:  A -> B, B -> C, C -> B и цикл B -> C -> B
+filter.txt, filter X, depth 5: A -> B, B -> D, A -> C, C -> D
+  AX напечатан в прямых зависимостях с пометкой, что фильтр его исключил.
+
+Этап 4. Только тестовый репозиторий, --reverse yes.
+reverse.txt, пакет D:
+  depth 1: B, C
+  depth 2: B, A, C, E
+  depth 3: B, A, F, C, E
+Для --test no программа сообщает, что JSON API не содержит обратных зависимостей.
+
+Этап 5. Рядом с SVG пишется PlantUML с тем же именем и расширением .puml.
+--ascii yes добавляет дерево. Три пакета с PyPI, глубина 1:
+
+python depvis.py --package requests --repo https://pypi.org/pypi --test no --output requests.svg --ascii yes --depth 1 --filter - --reverse no
+python depvis.py --package flask --repo https://pypi.org/pypi --test no --output flask.svg --ascii yes --depth 1 --filter - --reverse no
+python depvis.py --package jinja2 --repo https://pypi.org/pypi --test no --output jinja2.svg --ascii yes --depth 1 --filter - --reverse no
